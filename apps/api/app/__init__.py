@@ -1,0 +1,1 @@
+"""NexoVia FastAPI backend."""
