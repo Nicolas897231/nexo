@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Minus, Plus, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { MovementTable } from "@/components/movements/movement-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,6 +20,14 @@ function currentMonthDate() {
 }
 
 export default function MovementsPage() {
+  return (
+    <Suspense fallback={<main className="page"><div className="skeleton" style={{ height: 320 }} /></main>}>
+      <MovementsContent />
+    </Suspense>
+  );
+}
+
+function MovementsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -144,7 +152,7 @@ export default function MovementsPage() {
                 <h2>Registrar movimiento</h2>
                 <p className="muted">Agrega un ingreso o gasto en segundos.</p>
               </div>
-              <Link className="icon-button" href="/movements">×</Link>
+              <Link className="icon-button" href="/movements">x</Link>
             </div>
             <div className="tabs" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 18 }}>
               <Link className={`tab ${isIncome ? "active" : ""}`} href="/movements?drawer=create&type=income">Ingresar ingreso</Link>
