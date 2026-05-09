@@ -88,6 +88,21 @@ a {
   min-height: 100vh;
 }
 
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 92px 1fr;
+}
+
+.app-shell.sidebar-collapsed .brand strong,
+.app-shell.sidebar-collapsed .nav-item span,
+.app-shell.sidebar-collapsed .sidebar-footer span {
+  display: none;
+}
+
+.app-shell.sidebar-collapsed .brand,
+.app-shell.sidebar-collapsed .nav-item {
+  justify-content: center;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -223,6 +238,13 @@ a {
   align-items: center;
   gap: 14px;
   margin-left: auto;
+}
+
+.topbar-actions .muted {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-toggle {
@@ -553,7 +575,7 @@ textarea:focus-visible {
 
 .range-row {
   display: grid;
-  grid-template-columns: 1fr minmax(150px, 210px);
+  grid-template-columns: minmax(130px, 180px) minmax(130px, 1fr) minmax(130px, 190px);
   align-items: center;
   gap: 18px;
   padding: 12px 0;
@@ -599,6 +621,11 @@ textarea:focus-visible {
   border-radius: 14px;
   padding: 18px;
   background: var(--surface-soft);
+  min-width: 0;
+}
+
+.action-card > * {
+  min-width: 0;
 }
 
 .goal-card {
@@ -815,5 +842,13 @@ textarea:focus-visible {
 
   .drawer-preview {
     grid-template-columns: 1fr;
+  }
+
+  .range-row {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-value {
+    font-size: 24px;
   }
 }

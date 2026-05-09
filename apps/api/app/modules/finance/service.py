@@ -441,6 +441,7 @@ class FinancialProfileService:
             "currency_code": profile.currency_code,
             "city": profile.city,
             "payday": profile.payday,
+            "paydays": profile.paydays,
             "income_frequency": profile.income_frequency,
         }
 

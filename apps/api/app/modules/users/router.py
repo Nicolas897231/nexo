@@ -27,6 +27,7 @@ def get_profile(current_user: User = Depends(get_current_user)):
                 "city": profile.city,
                 "currency_code": profile.currency_code,
                 "payday": profile.payday,
+                "paydays": profile.paydays,
                 "income_frequency": profile.income_frequency,
             },
         }

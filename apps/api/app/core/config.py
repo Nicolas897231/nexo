@@ -49,6 +49,13 @@ class Settings(BaseSettings):
             raise ValueError("SESSION_COOKIE_SAMESITE must be lax, strict or none")
         return value
 
+    @field_validator("session_cookie_domain", mode="before")
+    @classmethod
+    def empty_cookie_domain_to_none(cls, value: str | None) -> str | None:
+        if value == "":
+            return None
+        return value
+
     @property
     def is_local(self) -> bool:
         return self.environment == "local"

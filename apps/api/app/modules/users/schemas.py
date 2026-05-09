@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 
 ALLOWED_THEME_MODES = {"system", "light", "dark"}
-ALLOWED_ACCENT_COLORS = {"blue", "green", "teal", "indigo", "slate"}
+ALLOWED_ACCENT_COLORS = {"blue", "green", "teal", "indigo", "slate", "ocean", "night"}
 
 
 class ProfileUpdate(BaseModel):
@@ -11,6 +11,7 @@ class ProfileUpdate(BaseModel):
     city: str | None = Field(default=None, max_length=100)
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     payday: int | None = Field(default=None, ge=1, le=31)
+    paydays: list[int] | None = Field(default=None, min_length=1, max_length=2)
     income_frequency: str | None = Field(
         default=None, pattern="^(monthly|biweekly|weekly|variable)$"
     )
@@ -26,6 +27,18 @@ class ProfileUpdate(BaseModel):
     @classmethod
     def uppercase_codes(cls, value: str | None) -> str | None:
         return value.upper() if value else value
+
+    @field_validator("paydays")
+    @classmethod
+    def validate_paydays(cls, value: list[int] | None) -> list[int] | None:
+        if value is None:
+            return value
+        unique = sorted(set(value))
+        if len(unique) != len(value):
+            raise ValueError("Los dias de pago no pueden repetirse.")
+        if any(day < 1 or day > 31 for day in unique):
+            raise ValueError("Cada dia de pago debe estar entre 1 y 31.")
+        return unique
 
 
 class SettingsUpdate(BaseModel):

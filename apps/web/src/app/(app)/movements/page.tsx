@@ -1,70 +1,122 @@
-import { Download, Filter, Minus, Plus } from "lucide-react";
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Minus, Plus, WalletCards } from "lucide-react";
 import Link from "next/link";
-import { CategoryDonut } from "@/components/dashboard/charts";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { MovementTable } from "@/components/movements/movement-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { kpis, movements } from "@/data/mock-data";
+import { formatMoney, normalizeMoney } from "@/lib/money";
+import { paymentMethods } from "@/lib/options";
+import { listCategories } from "@/services/api/catalogs.api";
+import { getDashboardSummary } from "@/services/api/dashboard.api";
+import { createMovement, deleteMovement, listMovements } from "@/services/api/movements.api";
 
-export default async function MovementsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ drawer?: string; type?: string }>;
-}) {
-  const params = await searchParams;
-  const drawerOpen = params?.drawer === "create";
-  const isIncome = params?.type !== "expense";
+function currentMonthDate() {
+  return `${new Date().toISOString().slice(0, 8)}01`;
+}
+
+export default function MovementsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const drawerOpen = searchParams.get("drawer") === "create";
+  const isIncome = searchParams.get("type") !== "expense";
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [description, setDescription] = useState("");
+  const [isFixed, setIsFixed] = useState(false);
+  const [categoryId, setCategoryId] = useState("");
+  const [subcategoryId, setSubcategoryId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [error, setError] = useState<string | null>(null);
+
+  const month = useMemo(currentMonthDate, []);
+  const movementsQuery = useQuery({ queryKey: ["movements"], queryFn: listMovements });
+  const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: listCategories });
+  const summaryQuery = useQuery({ queryKey: ["dashboard-summary", month], queryFn: () => getDashboardSummary(month) });
+  const categories = categoriesQuery.data ?? [];
+  const parentCategories = categories.filter((category) => category.kind === (isIncome ? "income" : "expense") && !category.parent_id);
+  const childCategories = categories.filter((category) => category.parent_id === categoryId);
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createMovement({
+        movement_type: isIncome ? "income" : "expense",
+        amount: normalizeMoney(amount),
+        transaction_date: date,
+        category_id: subcategoryId || categoryId || null,
+        description,
+        is_fixed: isFixed,
+        metadata: { payment_method: paymentMethod },
+      }),
+    onSuccess: async () => {
+      setAmount("");
+      setDescription("");
+      await queryClient.invalidateQueries({ queryKey: ["movements"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      router.push("/movements");
+    },
+    onError: () => setError("No pudimos guardar el movimiento. Revisa el monto y la fecha."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteMovement,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["movements"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+    },
+  });
+
+  const allMovements = movementsQuery.data ?? [];
+  const q = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const movements = q
+    ? allMovements.filter((movement) => (movement.description ?? "").toLowerCase().includes(q))
+    : allMovements;
+  const summary = summaryQuery.data;
+
   return (
     <main className="page">
       <PageHeader
         title="Movimientos"
-        description="Gestiona y revisa todos tus ingresos y egresos."
+        description="Gestiona y revisa todos tus ingresos y egresos reales."
         actions={
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link className="btn success" href="/movements?drawer=create&type=income"><Plus size={18} /> Registrar ingreso</Link>
             <Link className="btn danger" href="/movements?drawer=create&type=expense"><Minus size={18} /> Registrar gasto</Link>
           </div>
         }
       />
       <section className="grid kpi">
-        {kpis.map((kpi) => <MetricCard key={kpi.label} {...kpi} tone={kpi.tone as "success" | "danger" | "primary"} />)}
+        <MetricCard label="Total ingresos" value={summary?.total_income ?? "0.00"} tone="success" delta="mes actual" />
+        <MetricCard label="Total egresos" value={summary?.total_expenses ?? "0.00"} tone="danger" delta="mes actual" />
+        <MetricCard label="Balance neto" value={summary?.available_cashflow ?? "0.00"} tone="primary" delta="disponible" />
         <article className="card metric-card">
           <div className="metric-row">
-            <span className="metric-icon" style={{ background: "var(--purple)" }}><Filter /></span>
-            <div><p className="muted">Filtros activos</p><h2>3 filtros</h2><Link className="primary-text" href="/movements">Limpiar filtros</Link></div>
+            <span className="metric-icon" style={{ background: "var(--purple)" }}><WalletCards /></span>
+            <div><p className="muted">Movimientos</p><h2>{movements.length}</h2><p className="muted small">Registrados en tu cuenta</p></div>
           </div>
         </article>
       </section>
-      <section className="grid two" style={{ marginTop: 18, gridTemplateColumns: "1fr 340px" }}>
-        <article className="card pad">
-          <div className="form-grid" style={{ gridTemplateColumns: "1fr .6fr .6fr .6fr 1fr auto" }}>
-            <input className="input" value="1 Jul 2025 - 31 Jul 2025" readOnly aria-label="Rango de fechas" />
-            <select className="select" aria-label="Tipo"><option>Todos</option><option>Ingresos</option><option>Gastos</option></select>
-            <select className="select" aria-label="Categoria"><option>Todas</option></select>
-            <select className="select" aria-label="Meta"><option>Todas</option></select>
-            <input className="input" placeholder="Buscar en movimientos..." />
-            <button className="btn" type="button"><Download size={18} /> Exportar</button>
-          </div>
-          <div style={{ marginTop: 22 }}><MovementTable /></div>
-          <div className="card-header" style={{ marginTop: 18 }}>
-            <span className="muted small">Mostrando 1 a {movements.length} de 42 movimientos</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[1, 2, 3, 4, 5].map((page) => <button className={`btn ${page === 1 ? "primary" : ""}`} key={page} type="button">{page}</button>)}
-            </div>
-          </div>
-        </article>
-        <aside className="grid">
-          <article className="card pad">
-            <h2 className="card-title">Resumen rapido</h2>
-            <p className="muted">Promedio diario ingresos <strong className="success-text">$137.100</strong></p>
-            <p className="muted">Promedio diario egresos <strong className="danger-text">$93.200</strong></p>
-            <p className="muted">Mayor ingreso <strong className="success-text">$2.500.000</strong></p>
-          </article>
-          <article className="card pad">
-            <h2 className="card-title">Gastos por categoria</h2>
-            <CategoryDonut />
-          </article>
-        </aside>
+      <section className="card pad" style={{ marginTop: 18 }}>
+        <div className="card-header">
+          <h2 className="card-title">Historial</h2>
+          <button className="btn" type="button" onClick={() => window.print()}><Download size={18} /> Exportar</button>
+        </div>
+        {movementsQuery.isLoading ? (
+          <div className="skeleton" style={{ height: 220 }} />
+        ) : movements.length ? (
+          <MovementTable movements={movements} categories={categories} onDelete={(id) => deleteMutation.mutate(id)} />
+        ) : (
+          <EmptyState
+            title="Aun no tienes movimientos"
+            description="Registra tu primer ingreso o gasto para activar tus reportes."
+            action={<Link className="btn primary" href="/movements?drawer=create&type=income">Registrar ingreso</Link>}
+          />
+        )}
       </section>
       {drawerOpen ? (
         <section
@@ -79,7 +131,14 @@ export default async function MovementsPage({
           }}
         >
           <div />
-          <aside className="drawer-panel">
+          <form
+            className="drawer-panel"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setError(null);
+              createMutation.mutate();
+            }}
+          >
             <div className="card-header">
               <div>
                 <h2>Registrar movimiento</h2>
@@ -92,25 +151,45 @@ export default async function MovementsPage({
               <Link className={`tab ${!isIncome ? "active" : ""}`} href="/movements?drawer=create&type=expense">Registrar gasto</Link>
             </div>
             <div className="form-grid">
-              <label className="field"><span>Monto *</span><input className="input" placeholder="$ 0" /></label>
-              <label className="field"><span>Fecha *</span><input className="input" value="30 jul 2025" readOnly /></label>
-              <label className="field"><span>Categoria *</span><select className="select"><option>Selecciona una categoria</option></select></label>
-              <label className="field"><span>Subcategoria</span><select className="select"><option>Selecciona una subcategoria</option></select></label>
+              <label className="field"><span>Monto *</span><input className="input" inputMode="numeric" placeholder="Ej. 2500000" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
+              <label className="field"><span>Fecha *</span><input className="input" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+              <label className="field">
+                <span>Categoria *</span>
+                <select className="select" value={categoryId} onChange={(event) => { setCategoryId(event.target.value); setSubcategoryId(""); }}>
+                  <option value="">Selecciona una categoria</option>
+                  {parentCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span>Subcategoria</span>
+                <select className="select" value={subcategoryId} onChange={(event) => setSubcategoryId(event.target.value)}>
+                  <option value="">Sin subcategoria</option>
+                  {childCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span>Metodo</span>
+                <select className="select" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                  {paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+                </select>
+              </label>
             </div>
-            <label className="field" style={{ marginTop: 14 }}><span>Meta asociada</span><select className="select"><option>Buscar o seleccionar una meta</option></select></label>
-            <label className="field" style={{ marginTop: 14 }}><span>Metodo *</span><select className="select"><option>Selecciona metodo de pago o cuenta</option></select></label>
-            <label className="field" style={{ marginTop: 14 }}><span>Descripcion / Nota</span><textarea className="textarea" maxLength={120} placeholder="Ej. Salario de julio, bono por proyecto." /></label>
+            <label className="field" style={{ marginTop: 14 }}><span>Descripcion / Nota</span><textarea className="textarea" maxLength={120} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ej. Salario de julio, supermercado, transporte." /></label>
+            <label style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <input checked={isFixed} onChange={(event) => setIsFixed(event.target.checked)} type="checkbox" />
+              Movimiento recurrente
+            </label>
             <article className="card pad" style={{ marginTop: 18, background: isIncome ? "var(--success-soft)" : "var(--danger-soft)" }}>
               <h3>Resumen e impacto</h3>
-              <p className={isIncome ? "success-text" : "danger-text"}>{isIncome ? "+" : "-"} $0</p>
+              <p className={isIncome ? "success-text" : "danger-text"}>{isIncome ? "+" : "-"} {formatMoney(normalizeMoney(amount))}</p>
               <p className="muted">{isIncome ? "Aumenta tu saldo disponible" : "Reduce tu saldo disponible"}</p>
             </article>
+            {error ? <p className="badge danger" style={{ marginTop: 16 }}>{error}</p> : null}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24 }}>
               <Link className="btn" href="/movements">Cancelar</Link>
-              <button className="btn" type="button">Guardar y nuevo</button>
-              <button className="btn primary" type="button">Guardar {isIncome ? "ingreso" : "gasto"}</button>
+              <button className="btn primary" disabled={createMutation.isPending} type="submit">Guardar {isIncome ? "ingreso" : "gasto"}</button>
             </div>
-          </aside>
+          </form>
         </section>
       ) : null}
     </main>

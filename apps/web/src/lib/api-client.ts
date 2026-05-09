@@ -6,7 +6,7 @@ type ApiOptions = RequestInit & {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 const CLIENT_VERSION = process.env.NEXT_PUBLIC_CLIENT_VERSION ?? "0.1.0";
 
-function createRequestId() {
+export function createRequestId() {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
   }

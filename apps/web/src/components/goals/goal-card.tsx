@@ -1,24 +1,44 @@
 import { Calendar, Car, Home, PiggyBank, Plane } from "lucide-react";
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
+import type { Goal } from "@/services/api/goals.api";
 
 const iconByType = {
   saving: PiggyBank,
-  "living-alone": Home,
-  car: Car,
+  live_alone: Home,
+  buy_car: Car,
   travel: Plane,
 };
 
-export function GoalCard({ goal }: { goal: any }) {
-  const Icon = iconByType[goal.type as keyof typeof iconByType] ?? PiggyBank;
+const simulatorHrefByType = {
+  saving: "/simulators/saving",
+  live_alone: "/simulators/living-alone",
+  buy_car: "/simulators/car",
+  travel: "/simulators/travel",
+};
+
+const toneByType = {
+  saving: "success",
+  live_alone: "primary",
+  buy_car: "purple",
+  travel: "warning",
+};
+
+export function GoalCard({ goal }: { goal: Goal }) {
+  const Icon = iconByType[goal.goal_type] ?? PiggyBank;
+  const target = Number(goal.target_amount);
+  const current = Number(goal.current_amount);
+  const progress = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
+  const tone = toneByType[goal.goal_type] ?? "primary";
+  const label = goal.status === "completed" ? "Completada" : goal.status === "paused" ? "Pausada" : "Activa";
   return (
     <article className="card pad goal-card">
       <div className="card-header">
-        <span className="metric-icon" style={{ background: goal.tone === "warning" ? "var(--warning)" : `var(--${goal.tone})` }}>
+        <span className="metric-icon" style={{ background: tone === "warning" ? "var(--warning)" : `var(--${tone})` }}>
           <Icon size={25} />
         </span>
-        <span className={`badge ${goal.status === "En riesgo" ? "danger" : goal.status === "Viable" ? "success" : "warning"}`}>
-          {goal.status}
+        <span className={`badge ${goal.status === "paused" ? "warning" : goal.status === "not_viable" ? "danger" : "success"}`}>
+          {label}
         </span>
       </div>
       <div>
@@ -26,22 +46,22 @@ export function GoalCard({ goal }: { goal: any }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
           <div>
             <p className="muted small">Meta</p>
-            <strong className={`${goal.tone}-text`} style={{ fontSize: 22 }}>{formatMoney(goal.target)}</strong>
+            <strong className={`${tone}-text`} style={{ fontSize: 22 }}>{formatMoney(goal.target_amount)}</strong>
           </div>
           <div>
             <p className="muted small">Ahorrado</p>
-            <strong>{formatMoney(goal.saved)}</strong>
+            <strong>{formatMoney(goal.current_amount)}</strong>
           </div>
         </div>
       </div>
       <div>
-        <div className="progress"><span style={{ width: `${goal.progress}%`, background: goal.tone === "warning" ? "var(--warning)" : `var(--${goal.tone})` }} /></div>
-        <p className={`${goal.tone}-text`} style={{ textAlign: "right", fontWeight: 800 }}>{goal.progress}%</p>
+        <div className="progress"><span style={{ width: `${progress}%`, background: tone === "warning" ? "var(--warning)" : `var(--${tone})` }} /></div>
+        <p className={`${tone}-text`} style={{ textAlign: "right", fontWeight: 800 }}>{progress}%</p>
       </div>
-      <p className="muted"><Calendar size={16} /> Fecha estimada<br /><strong>{goal.date}</strong></p>
+      <p className="muted"><Calendar size={16} /> Fecha estimada<br /><strong>{goal.target_date || "Sin fecha"}</strong></p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Link className="btn" href={`/goals/${goal.type}`}>Ver detalle</Link>
-        <Link className="btn primary" href={`/simulators/${goal.type}`}>Simular</Link>
+        <Link className="btn" href={`/goals/${goal.id}`}>Ver detalle</Link>
+        <Link className="btn primary" href={simulatorHrefByType[goal.goal_type]}>Simular</Link>
       </div>
     </article>
   );

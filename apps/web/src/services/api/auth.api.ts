@@ -24,3 +24,17 @@ export function register(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export function logout() {
+  return apiClient("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function changePassword(payload: { current_password: string; new_password: string }) {
+  return apiClient("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

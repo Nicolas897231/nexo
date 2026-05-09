@@ -40,6 +40,7 @@ class UserProfile(Base):
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     currency_code: Mapped[str] = mapped_column(String(3), default="COP", nullable=False)
     payday: Mapped[int | None] = mapped_column(nullable=True)
+    paydays: Mapped[list[int] | None] = mapped_column(JSONB, nullable=True)
     income_frequency: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="profile")
